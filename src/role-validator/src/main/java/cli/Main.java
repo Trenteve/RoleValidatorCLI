@@ -3,7 +3,6 @@ import java.util.*;
 import bsh.Interpreter;
 import cli.models.*;
 import java.io.File;
-import java.io.FileReader;
 import java.sql.SQLException;
 
 public class Main {
@@ -18,7 +17,7 @@ public class Main {
         System.out.print("Please enter a choice: ");     
         while (scanner.hasNext()) {       
             String selection = scanner.next();
-            if (selection.equals("5")) {
+            if (selection.equals("7")) {
                 scanner.close();
                 return;
             }
@@ -28,7 +27,7 @@ public class Main {
                     System.out.println("Printing Users:");
                     try {
                         for (User user : dbContext.getAllUsers()) {
-                            System.out.println(user.username);
+                            System.out.println(user.getUsername());
                         }
                     } catch (SQLException e) {
                         e.printStackTrace();
@@ -46,12 +45,78 @@ public class Main {
                 case "4":
                     addUser(scanner, interpreter, dbContext);
                     break;
+                case "5":
+                    addRoleToUser(scanner, interpreter, dbContext);
+                    break;
+                case "6":
+                    runAccessCertification(scanner, interpreter, dbContext);
+                    break;
                 default:
                     break;
             }
             System.out.print("\nPlease enter a choice: ");
         }
         scanner.close();
+    }
+
+    private static void runAccessCertification(
+        Scanner scanner, 
+        Interpreter interpreter, 
+        AppDbContext dbContext
+    ) {
+        Map<String, List<String>> approvedRoles = new HashMap<>();
+        Map<String, List<String>> revokedRoles = new HashMap<>();
+
+        try {
+            List<User> users = dbContext.getAllUsers();
+            System.out.println("Running Access Certification on All Users:");
+            for (User user : users) {
+                System.out.printf("\nUser: %s\n", user.getUsername());
+                List<String> roles = new ArrayList<>();
+                List<String> removedRoles = new ArrayList<>();
+
+                for (String role : user.getRoles()) {
+                    System.out.printf("Assigned Role: %s\n", role);
+                    while (true) {
+                        System.out.print("Type Approve or Revoke: ");
+                        String choice = scanner.next();
+                        if(choice.equalsIgnoreCase("Approve")) {
+                            System.out.printf("Approved User %s with Role %s.\n", user.getUsername(), role);
+                            roles.add(role);
+                            break;
+                        }
+                        else if (choice.equalsIgnoreCase("Revoke")) {
+                            dbContext.removeRoleFromUser(user, role);
+                            removedRoles.add(role);
+                            break;
+                        }
+                        else {
+                            System.out.println("Wrong Input.");
+                        }
+                    }
+                }
+                approvedRoles.put(user.getUsername(), roles);
+                revokedRoles.put(user.getUsername(), removedRoles);
+                checkPolicies(interpreter, user);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        
+        printSummary(approvedRoles, revokedRoles);
+    }
+
+    private static void checkPolicies(Interpreter interpreter, User user) {
+        String path = new File("src/role-validator/src/main/java/cli").getAbsolutePath() + "/scripts/checkPolicy.bsh";
+        try {
+            interpreter.set("user", user);
+            List<String> violations = (List<String>) interpreter.source(path);
+            for (String violation : violations) {
+                System.out.println(violation);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     private static Map<String, Resource> createMap() {
@@ -69,7 +134,30 @@ public class Main {
                            + "2. View all resources\n"
                            + "3. Check access for a user\n"
                            + "4. Add a new user\n"
-                           + "5. Exit\n");
+                           + "5. Add a new role to a user\n"
+                           + "6. Run Access Certification\n"
+                           + "7. Exit\n");
+    }
+
+    private static void printSummary(
+        Map<String, List<String>> approvedRoles, 
+        Map<String, List<String>> revokedRoles
+    ) {
+        System.out.println("\nSummary Report of All Changes%s:\n"
+                        + "------------------------------");
+        
+        for (String user : approvedRoles.keySet()) {
+            System.out.printf("Approved Roles for User %s:\n", user);
+            for (String approvedRole : approvedRoles.get(user)) {
+                System.out.println(approvedRole);
+            }
+        }
+        for (String user : revokedRoles.keySet()) {
+            System.out.printf("Revoked Roles for User %s:\n", user);
+            for (String revokedRole : revokedRoles.get(user)) {
+                System.out.println(revokedRole);
+            }
+        }
     }
 
     private static void addUser(
@@ -91,8 +179,9 @@ public class Main {
         dbContext.insertUser(user);
         try {
             interpreter.set("user", dbContext.getUser(username));
-            User userWithRoles = (User) interpreter.eval(new FileReader(path));
+            User userWithRoles = (User) interpreter.source(path);
             dbContext.insertRoles(userWithRoles);
+            checkPolicies(interpreter, userWithRoles);
         } catch (Exception e) {
             System.err.printf("Error assigning roles to user, %s\n", e.getMessage());
             e.printStackTrace();
@@ -114,7 +203,7 @@ public class Main {
         try {
             interpreter.set("user", dbContext.getUser(username));
             interpreter.set("resource", allResources.get(resource));
-            Boolean hasAccess = (Boolean) interpreter.eval(new FileReader(path));
+            Boolean hasAccess = (Boolean) interpreter.source(path);
             if (hasAccess) {
                 System.out.printf("User %s has access to resource %s :)\n", username, resource);
             } 
@@ -125,5 +214,28 @@ public class Main {
             System.err.printf("Error checking user access, %s\n", e.getMessage());
             e.printStackTrace();
         }
+    }
+
+    private static void addRoleToUser(
+        Scanner scanner, 
+        Interpreter interpreter, 
+        AppDbContext dbContext
+    ) {
+        System.out.print("Please enter the username of the User: ");
+        String username = scanner.next();
+        System.out.print("Please enter the role name: ");
+        String role = scanner.next();
+
+        try {
+            User user = dbContext.getUser(username);
+            user.addRole(role);
+            dbContext.insertRoles(user);
+            checkPolicies(interpreter, user);
+        } catch (Exception e) {
+            System.err.printf("Error assigning roles to user, %s\n", e.getMessage());
+            e.printStackTrace();
+        }
+
+        System.out.printf("Provisioned User %s with Role %s.\n", username, role);
     }
 }

@@ -1,3 +1,5 @@
+// This script adds roles to a user based on Department and Title.
+
 if (user.getDepartment().equals("IT") && user.getTitle().equals("Engineer")) {
     user.addRole("ITAdmin");
     user.addRole("ITSupport");

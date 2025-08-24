@@ -2,11 +2,10 @@ package cli.models;
 import java.util.List;
 
 public class User {
-    public String username;
-    public String department;
-    public String title;
-    public List<String> roles;
-    //Attributes?
+    private String username;
+    private String department;
+    private String title;
+    private List<String> roles;
 
     public User(
         String username, 

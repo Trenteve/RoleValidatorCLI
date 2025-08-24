@@ -1,0 +1,29 @@
+// This script evaluates a set of policies for a given user.
+
+List violations = new ArrayList();
+
+// --- Rule 1: Segregation of Duties (SoD) ---
+// Policy: A user cannot have both 'DBA' and 'DatabaseReadOnly' roles.
+// This is a classic example of a conflict of interest.
+
+// Define the two conflicting roles.
+roleA = "DBA";
+roleB = "DatabaseReadOnly";
+
+hasRoleA = user.getRoles().contains(roleA);
+hasRoleB = user.getRoles().contains(roleB);
+
+if (hasRoleA && hasRoleB) {
+    String violationMessage = "SoD Violation: User '" + user.getUsername() + "' has both '" + roleA + "' and '" + roleB + "' roles.";
+    violations.add(violationMessage);
+}
+
+// --- Rule 2: Access based on Department ---
+// Policy: Users in the 'Sales' department cannot have the 'Admin' role.
+
+if (user.getDepartment().equals("Sales") && user.getRoles().contains("Admin")) {
+    String violationMessage = "Policy Violation: Sales users are not allowed to have Admin access.";
+    violations.add(violationMessage);
+}
+
+return violations;

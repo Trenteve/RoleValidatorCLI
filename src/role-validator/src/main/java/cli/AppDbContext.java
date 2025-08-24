@@ -60,7 +60,6 @@ public class AppDbContext {
             stmt.execute(roleTableSql);
             stmt.execute(userTableSql);
             stmt.execute(userRoleTableSQL);
-            System.out.println("Database initialized successfully.");
         } catch (SQLException e) {
             System.err.println("Error initializing database.");
             e.printStackTrace();
@@ -85,7 +84,7 @@ public class AppDbContext {
 
     public void insertRoles(User user) {
         String insertRoleSQL = "INSERT INTO roles(role_name) VALUES(?) ON CONFLICT(role_name) DO NOTHING";
-        String insertUserRoleSQL = "INSERT INTO user_roles(username, role_name) VALUES(?, ?)";
+        String insertUserRoleSQL = "INSERT INTO user_roles(username, role_name) VALUES(?, ?) ON CONFLICT(username, role_name) DO NOTHING";
 
         try (Connection conn = getConnection()) {
             PreparedStatement roleStmt = conn.prepareStatement(insertRoleSQL);
@@ -102,7 +101,6 @@ public class AppDbContext {
                 userRoleStmt.setString(2, roleName);
                 userRoleStmt.executeUpdate();
             }
-            System.out.println("Roles for user '" + user.getUsername() + "' inserted successfully.");
         } catch (SQLException e) {
             System.err.println("Failed to insert user: " + e.getMessage());
         }
@@ -111,23 +109,43 @@ public class AppDbContext {
     public List<User> getAllUsers() throws SQLException {
         List<User> users = new ArrayList<>();
         String sql = "SELECT * FROM users";
+        String rolesSql = "SELECT * FROM user_roles WHERE username = ?";
+        String username = "";
+        String department = "";
+        String title = "";
 
-        try (Connection conn = getConnection();
-            Statement stmt = conn.createStatement();
-            ResultSet rs = stmt.executeQuery(sql)) {
+        try (Connection conn = getConnection()) {
+            PreparedStatement pstmt = conn.prepareStatement(sql);
+            PreparedStatement rolePstmt = conn.prepareStatement(rolesSql);
+            
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    username = rs.getString("username");
+                    department = rs.getString("department");
+                    title = rs.getString("title");
 
-            while (rs.next()) {
-                String username = rs.getString("username");
-                String department = rs.getString("department");
-                String title = rs.getString("title");
+                    List<String> userRoles = new ArrayList<>();
+                    rolePstmt.setString(1, username);
+                    try (ResultSet rs2 = rolePstmt.executeQuery()) {
+                        while (rs2.next()) {
+                            String role = rs2.getString("role_name");
+                            userRoles.add(role);
+                        }
+                    }
+                    catch (Exception e) {
+                        e.printStackTrace();
+                    }
 
-                User user = new User(username, department, title, new ArrayList<>());
-                users.add(user);
+                    users.add(new User(username, department, title, userRoles));
+                }
             }
-        } catch (SQLException e) {
-            System.err.println("Error retrieving flashcards.");
+            catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        catch (SQLException e) {
+            System.err.println("Error retrieving users.");
             e.printStackTrace();
-            throw e;
         }
 
         return users;
@@ -172,5 +190,19 @@ public class AppDbContext {
 
         user = new User(user_name, department, title, roles);
         return user;
+    }
+
+    public void removeRoleFromUser(User user, String role) {
+        String deleteUserRoleSQL = "DELETE FROM user_roles WHERE username = ? AND role_name = ?";
+
+        try (Connection conn = getConnection()) {
+            PreparedStatement userRoleStmt = conn.prepareStatement(deleteUserRoleSQL);
+
+            userRoleStmt.setString(1, user.getUsername());
+            userRoleStmt.setString(2, role);
+            userRoleStmt.executeUpdate();
+        } catch (SQLException e) {
+            System.err.println("Failed to remove role from user: " + e.getMessage());
+        }
     }
 }
