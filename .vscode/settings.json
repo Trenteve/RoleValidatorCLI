@@ -1,0 +1,9 @@
+{
+    "java.project.sourcePaths": [
+        "src"
+    ],
+    "java.project.referencedLibraries": [
+        "/Library/Java/Extensions/bsh-2.1.1.jar"
+    ],
+    "java.configuration.updateBuildConfiguration": "interactive"
+}

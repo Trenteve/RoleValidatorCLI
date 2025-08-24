@@ -1,0 +1,12 @@
+if (user.getDepartment().equals("IT") && user.getTitle().equals("Engineer")) {
+    user.addRole("ITAdmin");
+    user.addRole("ITSupport");
+}
+
+if (user.getDepartment().equals("Delivery") && user.getTitle().equals("Manager")) {
+    user.addRole("DeliveryManager");
+}
+
+if (user.getDepartment().equals("Delivery") && user.getTitle().equals("Engineer")) {
+    user.addRole("DeliveryEngineer");
+}

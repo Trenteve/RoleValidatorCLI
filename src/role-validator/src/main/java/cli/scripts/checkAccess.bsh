@@ -1,0 +1,11 @@
+hasAccess = false;
+requiredRolesSet = new HashSet(resource.getRequiredRoles());
+
+// Keep only the roles that exist in both sets
+requiredRolesSet.retainAll(user.getRoles());
+
+if (!requiredRolesSet.isEmpty()) {
+    hasAccess = true;
+}
+
+return hasAccess;

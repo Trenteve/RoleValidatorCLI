@@ -1,0 +1,6 @@
+cli/models/User.class
+cli/models/Role.class
+cli/Storage.class
+cli/Main.class
+cli/Storage$1.class
+cli/models/Resource.class
