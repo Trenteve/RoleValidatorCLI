@@ -4,12 +4,14 @@ import bsh.Interpreter;
 import cli.models.*;
 import java.io.File;
 import java.io.FileReader;
+import java.sql.SQLException;
 
 public class Main {
     public static void main(String[] args) {
         Interpreter interpreter = new Interpreter();
         Scanner scanner = new Scanner(System.in);
-        Map<String,User> allUsers = new HashMap<String, User>();
+        AppDbContext dbContext = new AppDbContext();
+        dbContext.initializeDatabase();
         Map<String, Resource> allResources = createMap();
 
         printMenu();
@@ -24,8 +26,12 @@ public class Main {
             switch (selection) {
                 case "1":
                     System.out.println("Printing Users:");
-                    for (String username : allUsers.keySet()) {
-                        System.out.println(username);
+                    try {
+                        for (User user : dbContext.getAllUsers()) {
+                            System.out.println(user.username);
+                        }
+                    } catch (SQLException e) {
+                        e.printStackTrace();
                     }
                     break;
                 case "2":
@@ -35,10 +41,10 @@ public class Main {
                     }
                     break;
                 case "3":
-                    checkUserAccess(scanner, interpreter, allUsers, allResources);
+                    checkUserAccess(scanner, interpreter, allResources, dbContext);
                     break;
                 case "4":
-                    addUser(scanner, interpreter, allUsers);
+                    addUser(scanner, interpreter, dbContext);
                     break;
                 default:
                     break;
@@ -69,7 +75,7 @@ public class Main {
     private static void addUser(
         Scanner scanner, 
         Interpreter interpreter, 
-        Map<String, User> allUsers
+        AppDbContext dbContext
     ) {
         String path = new File("src/role-validator/src/main/java/cli").getAbsolutePath() + "/scripts/assignRoles.bsh";
         System.out.print("Please enter the username of the User: ");
@@ -81,24 +87,23 @@ public class Main {
         System.out.print("Enter title: ");
         String title = scanner.next();
 
-        allUsers.put(username, new User(username, department, title));
-
+        User user = new User(username, department, title, new ArrayList<>());
+        dbContext.insertUser(user);
         try {
-            interpreter.set("user", allUsers.get(username));
-            interpreter.eval(new FileReader(path));
+            interpreter.set("user", dbContext.getUser(username));
+            User userWithRoles = (User) interpreter.eval(new FileReader(path));
+            dbContext.insertRoles(userWithRoles);
         } catch (Exception e) {
             System.err.printf("Error assigning roles to user, %s\n", e.getMessage());
             e.printStackTrace();
         }
-
-        System.out.println("User added!");
     }
 
     private static void checkUserAccess(
         Scanner scanner, 
         Interpreter interpreter, 
-        Map<String, User> allUsers,
-        Map<String,Resource> allResources
+        Map<String,Resource> allResources,
+        AppDbContext dbContext
     ) {
         String path = new File("src/role-validator/src/main/java/cli").getAbsolutePath() + "/scripts/checkAccess.bsh";
         System.out.print("Please enter the username of the User: ");
@@ -107,7 +112,7 @@ public class Main {
         String resource = scanner.next();
 
         try {
-            interpreter.set("user", allUsers.get(username));
+            interpreter.set("user", dbContext.getUser(username));
             interpreter.set("resource", allResources.get(resource));
             Boolean hasAccess = (Boolean) interpreter.eval(new FileReader(path));
             if (hasAccess) {

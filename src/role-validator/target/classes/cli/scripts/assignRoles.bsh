@@ -10,3 +10,5 @@ if (user.getDepartment().equals("Delivery") && user.getTitle().equals("Manager")
 if (user.getDepartment().equals("Delivery") && user.getTitle().equals("Engineer")) {
     user.addRole("DeliveryEngineer");
 }
+
+return user;

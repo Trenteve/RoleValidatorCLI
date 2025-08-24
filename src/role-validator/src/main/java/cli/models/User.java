@@ -1,5 +1,4 @@
 package cli.models;
-import java.util.ArrayList;
 import java.util.List;
 
 public class User {
@@ -12,12 +11,13 @@ public class User {
     public User(
         String username, 
         String department, 
-        String title
+        String title,
+        List<String> roles
     ) {
         this.username = username;
         this.department = department;
         this.title = title;
-        this.roles = new ArrayList<String>();
+        this.roles = roles;
     }
 
     public String getUsername() {
